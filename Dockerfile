@@ -1,6 +1,9 @@
 # 阶段 1：构建产物阶段
-# 使用第三方高可用国内镜像加速源，如果该源失效可替换为 registry.cn-hangzhou.aliyuncs.com/library/node:20-alpine 等
-FROM m.daocloud.io/docker.io/library/node:20-alpine AS builder
+# 由于国内网络原因，直接拉取 docker.io 容易超时。这里提供了几个备选镜像源，如果当前失效可以在代码中替换 FROM 后面的前缀：
+# 备选 1: docker.1panel.live/library/
+# 备选 2: dockerpull.com/
+# 备选 3: docker.anyhub.us.kg/library/
+FROM docker.1panel.live/library/node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -16,7 +19,7 @@ COPY . .
 RUN npm run build
 
 # 阶段 2：生产伺服阶段
-FROM m.daocloud.io/docker.io/library/nginx:alpine
+FROM docker.1panel.live/library/nginx:alpine
 
 # 删除 Nginx 的默认静态页面
 RUN rm -rf /usr/share/nginx/html/*
