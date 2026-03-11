@@ -1,7 +1,5 @@
 # 阶段 1：构建产物阶段
-# 由于国内网络原因加速器失效，这里使用您自己阿里云 ACR 中的镜像
-# 请将 <your_namespace> 替换为您在阿里云容器镜像服务中的实际命名空间
-FROM registry.cn-hangzhou.aliyuncs.com/<your_namespace>/node:20-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -17,8 +15,7 @@ COPY . .
 RUN npm run build
 
 # 阶段 2：生产伺服阶段
-# 请同样将这里的命名空间替换为您自己的
-FROM registry.cn-hangzhou.aliyuncs.com/<your_namespace>/nginx:alpine
+FROM nginx:alpine
 
 # 删除 Nginx 的默认静态页面
 RUN rm -rf /usr/share/nginx/html/*
