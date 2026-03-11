@@ -2,7 +2,7 @@ services:
   phm-frontend:
     # 明确指定上下文和 Dockerfile 的路径
     build:
-      context: ./phm-frontend
+      context: .
       dockerfile: Dockerfile
     image: phm-frontend:latest
     container_name: phm-frontend-app
