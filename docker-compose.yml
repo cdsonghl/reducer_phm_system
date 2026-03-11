@@ -1,0 +1,12 @@
+services:
+  phm-frontend:
+    # 明确指定上下文和 Dockerfile 的路径
+    build:
+      context: ./phm-frontend
+      dockerfile: Dockerfile
+    image: phm-frontend:latest
+    container_name: phm-frontend-app
+    # 前面的 8080 是宿主机端口，可以按需更改为其他端口如 80、3000
+    ports:
+      - "8080:80"
+    restart: always

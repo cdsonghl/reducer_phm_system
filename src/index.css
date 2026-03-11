@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  /* 工业科技风定制颜色 */
+  --color-brand-primary: #1890ff;
+  --color-brand-success: #52c41a;
+  --color-brand-warning: #faad14;
+  --color-brand-danger: #f5222d;
+  
+  --color-bg-base: #0f1215;
+  --color-bg-panel: #1a1f26;
+  --color-bg-panel-hover: #262c36;
+  
+  --color-text-primary: #e5e7eb;
+  --color-text-secondary: #9ca3af;
+  --color-border-color: #374151;
+}
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-base);
+
+  font-synthetic: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+#root {
+  width: 100%;
+}
