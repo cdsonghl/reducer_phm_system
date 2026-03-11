@@ -3,7 +3,7 @@
 # 备选 1: docker.1panel.live/library/
 # 备选 2: dockerpull.com/
 # 备选 3: docker.anyhub.us.kg/library/
-FROM docker.1panel.live/library/node:20-alpine AS builder
+FROM swr.cn-south-1.myhuaweicloud.com/library/node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ COPY . .
 RUN npm run build
 
 # 阶段 2：生产伺服阶段
-FROM docker.1panel.live/library/nginx:alpine
+FROM swr.cn-south-1.myhuaweicloud.com/library/nginx:alpine
 
 # 删除 Nginx 的默认静态页面
 RUN rm -rf /usr/share/nginx/html/*
