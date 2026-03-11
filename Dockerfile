@@ -1,11 +1,13 @@
 # 阶段 1：构建产物阶段
-FROM node:20-alpine AS builder
+# 使用第三方高可用国内镜像加速源，如果该源失效可替换为 registry.cn-hangzhou.aliyuncs.com/library/node:20-alpine 等
+FROM m.daocloud.io/docker.io/library/node:20-alpine AS builder
 
 WORKDIR /app
 
 # 复制包管理配置文件并安装依赖
 COPY package*.json ./
-RUN npm install
+# 显式使用淘宝源加速依赖安装
+RUN npm install --registry=https://registry.npmmirror.com
 
 # 复制整个项目工程到容器中
 COPY . .
@@ -14,7 +16,7 @@ COPY . .
 RUN npm run build
 
 # 阶段 2：生产伺服阶段
-FROM nginx:alpine
+FROM m.daocloud.io/docker.io/library/nginx:alpine
 
 # 删除 Nginx 的默认静态页面
 RUN rm -rf /usr/share/nginx/html/*
