@@ -1,9 +1,5 @@
 # 阶段 1：构建产物阶段
-# 由于国内网络原因，直接拉取 docker.io 容易超时。这里提供了几个备选镜像源，如果当前失效可以在代码中替换 FROM 后面的前缀：
-# 备选 1: docker.1panel.live/library/
-# 备选 2: dockerpull.com/
-# 备选 3: docker.anyhub.us.kg/library/
-FROM registry.cn-hangzhou.aliyuncs.com/aliyun_docker_image/node:20-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -19,7 +15,7 @@ COPY . .
 RUN npm run build
 
 # 阶段 2：生产伺服阶段
-FROM registry.cn-hangzhou.aliyuncs.com/aliyun_docker_image/nginx:alpine
+FROM nginx:alpine
 
 # 删除 Nginx 的默认静态页面
 RUN rm -rf /usr/share/nginx/html/*
