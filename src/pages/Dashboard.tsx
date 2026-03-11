@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Card, Table, Tag } from 'antd';
 import DigitalTwin, { DEFAULT_HIGHLIGHT_PARTS, DEVICE2_HIGHLIGHT_PARTS } from '../components/DigitalTwin';
 import { HealthIndexChart } from '../components/HealthIndexChart';

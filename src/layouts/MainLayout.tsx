@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Layout, Menu, theme } from 'antd';
+import { useState } from 'react';
+import { Layout, Menu } from 'antd';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
     LineChartOutlined,

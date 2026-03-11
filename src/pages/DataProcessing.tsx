@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, Form, Select, Switch, Button, notification } from 'antd';
 import ReactECharts from 'echarts-for-react';
 

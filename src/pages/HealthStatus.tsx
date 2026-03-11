@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Card, Table, Tag, Select } from 'antd';
 import { HealthIndexChart } from '../components/HealthIndexChart';
 
