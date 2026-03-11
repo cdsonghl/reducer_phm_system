@@ -1,5 +1,10 @@
 # 阶段 1：构建产物阶段
-FROM node:20-alpine AS builder
+# 针对无法使用阿里云加速器或原生加速器的情况，提供免梯子公益镜像
+# 若 nju 失效，可替换前缀为：
+# 1. docker.m.daocloud.io/library/
+# 2. docker.13140521.xyz/library/
+# 3. ynhub.m.daocloud.io/library/
+FROM docker.nju.edu.cn/library/node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -15,7 +20,7 @@ COPY . .
 RUN npm run build
 
 # 阶段 2：生产伺服阶段
-FROM nginx:alpine
+FROM docker.nju.edu.cn/library/nginx:alpine
 
 # 删除 Nginx 的默认静态页面
 RUN rm -rf /usr/share/nginx/html/*
