@@ -1,73 +1,74 @@
-# React + TypeScript + Vite
+# PHM Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+基于 `React + TypeScript + Vite + Ant Design + Tailwind` 的 PHM 前端演示与业务页面工程。
 
-Currently, two official plugins are available:
+## 1. 目录结构
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+phm-frontend/
+├─ public/                 # 静态资源（3D模型、draco资源等）
+├─ src/
+│  ├─ components/          # 可复用组件（数字孪生、图表等）
+│  ├─ layouts/             # 页面布局
+│  ├─ pages/               # 各业务页面
+│  ├─ App.tsx              # 路由入口
+│  ├─ main.tsx             # 应用启动入口
+│  └─ index.css            # 全局样式与主题变量
+├─ Dockerfile              # 生产镜像构建（Node build + Nginx）
+├─ docker-compose.yml      # 本地/服务器容器编排
+├─ nginx.conf              # SPA 路由与静态资源服务
+└─ package.json
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 2. 开发与构建
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
+
+```bash
+npm run build
+npm run preview
+```
+
+```bash
+npm run lint
+```
+
+## 3. Docker 部署
+
+### 3.1 构建并启动
+
+```bash
+docker compose up -d --build
+```
+
+访问地址：
+
+`http://<your-host>:8080`
+
+### 3.2 停止服务
+
+```bash
+docker compose down
+```
+
+### 3.3 注意事项
+
+- 需要本机 Docker daemon 正常运行（Docker Desktop 已启动）。
+- `Dockerfile` 使用双阶段构建：`node:20-alpine` 负责打包，`nginx:alpine` 负责静态托管。
+- `nginx.conf` 已配置 SPA 回退（`try_files ... /index.html`）。
+
+## 4. 当前约定
+
+- 路由入口：`src/App.tsx`
+- 统一布局：`src/layouts/MainLayout.tsx`
+- 3D 数字孪生：`src/components/DigitalTwin.tsx`
+- 高亮部件配置：`src/components/digitalTwinConfig.ts`
+
+## 5. 后续建议
+
+- 将页面内 mock 数据逐步迁移到 `src/services`（API 与 mock 分离）。
+- 为关键页面补充状态管理与类型定义，减少页面文件复杂度。
+- 引入 CI（lint + build）作为合并门禁，避免回归。

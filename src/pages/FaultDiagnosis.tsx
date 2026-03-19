@@ -20,10 +20,10 @@ const FaultDiagnosis = () => {
 
     // Tab 2: Specific Anomaly Diagnosis State
     const assessmentTasks = [
-        { key: '1', time: '2025-12-22 15:29:05', device: '二号减速箱', component: 'X轴振动信号异常', detail: '一级小齿轮断齿' },
-        { key: '2', time: '2025-12-10 10:22:15', device: '一号减速箱', component: 'X轴振动信号异常', detail: '二级大齿轮点蚀' },
+        { key: '0', time: '2026-02-09 15:37:17', device: 'BP-14减速箱', component: 'Z轴振动信号异常', detail: '输入轴轴承故障' },
+        { key: '1', time: '2025-12-22 15:29:05', device: '二号减速箱', component: 'X轴振动信号异常', detail: '一级小齿轮断齿' }
     ];
-    const [selectedTaskKey, setSelectedTaskKey] = useState<React.Key>('1');
+    const [selectedTaskKey, setSelectedTaskKey] = useState<React.Key>('0');
     const [selectedDiagnosisModel, setSelectedDiagnosisModel] = useState<string>('1');
     const activeTask = assessmentTasks.find(t => t.key === selectedTaskKey) || assessmentTasks[0];
 
@@ -132,7 +132,7 @@ const FaultDiagnosis = () => {
             areaStyle: { color: 'rgba(245, 34, 45, 0.4)' },
             lineStyle: { color: '#f5222d' },
             itemStyle: { color: '#f5222d' },
-            data: [{ value: activeTask.key === '1' ? [92, 18, 12, 22, 15] : [5, 12, 18, 88, 10] }]
+            data: [{ value: activeTask.key === '0' ? [11, 7, 7, 3, 73] : activeTask.key === '1' ? [92, 18, 12, 22, 15] : [5, 12, 18, 88, 10] }]
         }]
     };
 
@@ -322,9 +322,9 @@ const FaultDiagnosis = () => {
                                                     <div className="text-6xl text-brand-danger"><CheckCircleOutlined /></div>
                                                     <div>
                                                         <h2 className="text-2xl font-bold text-brand-danger">
-                                                            {activeTask.key === '1' ? '一级小齿轮 存在严重故障' : '二级大齿轮 存在严重故障'}
+                                                            {activeTask.key === '0' ? '输入轴轴承 存在严重故障' : activeTask.key === '1' ? '一级小齿轮 存在严重故障' : '二级大齿轮 存在严重故障'}
                                                         </h2>
-                                                        <p className="text-gray-400 mt-1">诊断机理信度: {activeTask.key === '1' ? '0.942' : '0.915'} | 预测模式: {activeTask.detail}</p>
+                                                        <p className="text-gray-400 mt-1">诊断机理信度: {activeTask.key === '0' ? '0.963' : activeTask.key === '1' ? '0.942' : '0.915'} | 预测模式: {activeTask.detail}</p>
                                                     </div>
                                                 </div>
                                                 <div className="h-[300px]">
@@ -336,12 +336,13 @@ const FaultDiagnosis = () => {
                                                 <div className="flex items-start gap-3">
                                                     <RobotOutlined className="text-2xl text-brand-primary mt-1 shadow-glow" />
                                                     <div className="text-sm text-gray-300 leading-relaxed font-mono relative min-h-[300px]">
-                                                        <p className="mb-2"><strong>分析报告：</strong>基于时变工况特征与深度网络判定，分析判定 {activeTask.device} 的 {activeTask.key === '1' ? '一级小齿轮出现断齿裂纹演化趋势，伴有强烈冲击。' : '二级大齿轮出现齿面综合点蚀，包含高频调制。'}</p>
+                                                        <p className="mb-2"><strong>分析报告：</strong>基于时变工况特征与深度网络判定，分析判定 {activeTask.device} 的 {activeTask.key === '0' ? '输入轴轴承外圈出现明显局部剥落故障，伴有轴向高频冲击调制。' : activeTask.key === '1' ? '一级小齿轮出现断齿裂纹演化趋势，伴有强烈冲击。' : '二级大齿轮出现齿面综合点蚀，包含高频调制。'}</p>
                                                         <p className="mb-2 mt-4 text-brand-warning"><strong>建议方案：</strong></p>
                                                         <ul className="list-disc pl-4 space-y-2 mb-2 text-gray-400">
                                                             <li>申请开盖窗口，使用专业内窥镜进行齿根及轴承检查。</li>
                                                             <li>开展润滑油铁谱分析，量化微粒剥落。</li>
-                                                            <li>建议提交对应部位的备件库申领单。</li>
+                                                            <li>若内窥镜和油液分析后发现异常，建议取下输入轴轴承进行深入检查以及更换</li>
+                                                            <li>建议及时提交对应部位的备件库申领单。</li>
                                                         </ul>
                                                         <p className="text-xs text-brand-primary absolute bottom-0 right-0 w-full text-right pt-2 border-t border-blue-900/50">生成源: 本地私有化领域大模型</p>
                                                     </div>

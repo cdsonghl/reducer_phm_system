@@ -10,7 +10,7 @@ const REGISTERED_DEVICES = [
     {
         id: 'A-001',
         sn: 'ZJ-Heli-A1',
-        name: '一号减速箱',
+        name: 'BP-14减速箱',
         model_type: '两级行星直升机主减速器',
         location: '1号试车台',
         healthDrop: 0,
@@ -50,6 +50,7 @@ const HealthStatus = () => {
     ];
 
     const alertData = activeDevice.id === 'A-001' ? [
+        { key: '0', time: '2026-02-09 15:37:17', rule: 'Z轴振动信号异常', level: '严重', desc: '输入轴轴承故障（GALN算法）' },
         { key: '3', time: '2025-07-10 10:22:15', rule: 'X轴振动信号异常', level: '警告', desc: '二级大齿轮点蚀（GALN算法）' },
         { key: '2', time: '2023-10-25 10:28:12', rule: '温度包络阈值', level: '警告', desc: '输入轴测温节点报告温度持续攀升逾 3°C/min。' },
     ] : [

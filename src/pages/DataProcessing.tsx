@@ -39,10 +39,11 @@ const DataProcessing = () => {
         makeInitData(featureCfg.baseVal, featureCfg.rawNoise, featureCfg.smoothK)
     );
 
-    // 切换特征时重置数据
-    useEffect(() => {
-        setStreamData(makeInitData(featureCfg.baseVal, featureCfg.rawNoise, featureCfg.smoothK));
-    }, [selectedFeature]);
+    const handleFeatureChange = (nextFeature: string) => {
+        setSelectedFeature(nextFeature);
+        const nextCfg = FEATURES.find(f => f.key === nextFeature) ?? FEATURES[0];
+        setStreamData(makeInitData(nextCfg.baseVal, nextCfg.rawNoise, nextCfg.smoothK));
+    };
 
     // 每2秒追加新数据点
     useEffect(() => {
@@ -168,7 +169,7 @@ const DataProcessing = () => {
                     extra={
                         <Select
                             value={selectedFeature}
-                            onChange={setSelectedFeature}
+                            onChange={handleFeatureChange}
                             style={{ width: 160 }}
                             size="small"
                         >

@@ -1,6 +1,7 @@
 
 import { Card, Table, Tag } from 'antd';
-import DigitalTwin, { DEFAULT_HIGHLIGHT_PARTS, DEVICE2_HIGHLIGHT_PARTS } from '../components/DigitalTwin';
+import DigitalTwin from '../components/DigitalTwin';
+import { DEFAULT_HIGHLIGHT_PARTS, DEVICE2_HIGHLIGHT_PARTS } from '../components/digitalTwinConfig';
 import { HealthIndexChart } from '../components/HealthIndexChart';
 
 // 设备配置
@@ -37,6 +38,7 @@ const alertColumns = [
 ];
 
 const alertData = [
+    { key: '0', time: '2026-02-09 15:37:17', device: '一号减速箱', deviceId: 'A-001', component: 'Z轴振动信号异常', level: 'Critical', detail: '输入轴轴承故障（GALN算法）' },
     { key: '1', time: '2025-12-22 15:29:05', device: '二号减速箱', deviceId: 'B-002', component: 'X轴振动信号异常', level: 'Critical', detail: '一级小齿轮断齿（GALN算法）' },
     { key: '2', time: '2025-12-10 10:22:15', device: '一号减速箱', deviceId: 'A-001', component: 'X轴振动信号异常', level: 'Warning', detail: '二级大齿轮点蚀（GALN算法）' },
     { key: '3', time: '2023-10-25 10:28:12', device: '一号减速箱', deviceId: 'A-001', component: '温度包络阈值', level: 'Warning', detail: '1号太阳轮侧温节点报告温度持续攀升逾 3°C/min。' },
