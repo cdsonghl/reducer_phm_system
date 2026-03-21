@@ -33,10 +33,16 @@ function makeData(healthDrop: number, seed: number) {
 interface Props {
     healthDrop?: number;
     seed?: number;
+    points?: Array<{ time: string; value: number }>;
 }
 
-export const HealthIndexChart = ({ healthDrop = 0, seed = 1 }: Props) => {
-    const data = useMemo(() => makeData(healthDrop, seed), [healthDrop, seed]);
+export const HealthIndexChart = ({ healthDrop = 0, seed = 1, points }: Props) => {
+    const data = useMemo(() => {
+        if (points && points.length > 0) {
+            return points.map((p) => ({ time: p.time, value: p.value }));
+        }
+        return makeData(healthDrop, seed);
+    }, [healthDrop, seed, points]);
 
     const option = useMemo(() => ({
         tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },

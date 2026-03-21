@@ -11,3 +11,4 @@ dist-ssr
 .env.production.local
 .env.local
 .DS_Store
+phm-backend/

@@ -1,12 +1,43 @@
-services:
+﻿services:
+  phm-backend:
+    build:
+      context: ./phm-backend
+      dockerfile: Dockerfile
+    image: phm-backend:latest
+    container_name: phm-backend-app
+    environment:
+      DJANGO_SECRET_KEY: replace-this-in-production
+      DJANGO_DEBUG: "false"
+      DJANGO_ALLOWED_HOSTS: "*"
+      DJANGO_TIME_ZONE: Asia/Shanghai
+      SQLITE_PATH: /data/db.sqlite3
+      CORS_ALLOWED_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
+      DEMO_ADMIN_USERNAME: admin
+      DEMO_ADMIN_PASSWORD: admin123
+      DEMO_ADMIN_EMAIL: admin@example.com
+    volumes:
+      - phm_backend_data:/data
+    expose:
+      - "8000"
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py bootstrap_demo_user &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120"
+    restart: always
+
   phm-frontend:
-    # 明确指定上下文和 Dockerfile 的路径
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
     image: phm-frontend:latest
     container_name: phm-frontend-app
-    # 前面的 8080 是宿主机端口，可以按需更改为其他端口如 80、3000
+    depends_on:
+      - phm-backend
     ports:
       - "8080:80"
     restart: always
+
+volumes:
+  phm_backend_data:

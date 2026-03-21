@@ -1,0 +1,15 @@
+services:
+  phm-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: phm-backend:latest
+    container_name: phm-backend-app
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py bootstrap_demo_user &&
+             python manage.py runserver 0.0.0.0:8000"
