@@ -36,7 +36,7 @@
     depends_on:
       - phm-backend
     ports:
-      - "8080:80"
+      - "18180:80"
     restart: always
 
 volumes:
