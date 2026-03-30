@@ -3,6 +3,7 @@ import { Button, Card, Input, Modal, Form, Space, Table, Tag, Typography, messag
 import { CopyOutlined, DownloadOutlined, PlusOutlined, QrcodeOutlined, SearchOutlined } from "@ant-design/icons";
 import { QRCodeCanvas } from "qrcode.react";
 import QRCode from "qrcode";
+import { jsPDF } from "jspdf";
 import { createDevice, getDevices, getIntegrations, getRoles, type Device, type Role } from "@/services/phmApi";
 
 type DeviceFormValues = {
@@ -12,6 +13,84 @@ type DeviceFormValues = {
   model_type: string;
   location: string;
 };
+
+const PDF_COLUMNS = 3;
+const PDF_ROWS = 4;
+const PDF_PAGE_SIZE = PDF_COLUMNS * PDF_ROWS;
+
+function loadImageFromDataUrl(dataUrl: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("二维码图片加载失败"));
+    image.src = dataUrl;
+  });
+}
+
+function splitTextByWidth(
+  context: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines: number
+): string[] {
+  if (!text) return [""];
+
+  const lines: string[] = [];
+  let current = "";
+
+  for (const char of text) {
+    const next = current + char;
+    if (context.measureText(next).width <= maxWidth || current.length === 0) {
+      current = next;
+      continue;
+    }
+
+    lines.push(current);
+    current = char;
+    if (lines.length >= maxLines) break;
+  }
+
+  if (lines.length < maxLines && current) {
+    lines.push(current);
+  }
+
+  if (lines.length > maxLines) {
+    lines.length = maxLines;
+  }
+
+  if (lines.length === maxLines) {
+    let last = lines[maxLines - 1];
+    while (last.length > 0 && context.measureText(`${last}...`).width > maxWidth) {
+      last = last.slice(0, -1);
+    }
+    lines[maxLines - 1] = last.length === 0 ? "..." : `${last}...`;
+  }
+
+  return lines;
+}
+
+function drawWrappedText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  font: string,
+  lineHeight: number,
+  maxLines: number,
+  color = "#111827"
+): number {
+  context.font = font;
+  context.fillStyle = color;
+  context.textBaseline = "top";
+
+  const lines = splitTextByWidth(context, text, maxWidth, maxLines);
+  lines.forEach((line, index) => {
+    context.fillText(line, x, y + index * lineHeight);
+  });
+
+  return y + lines.length * lineHeight;
+}
 
 const SystemManagement = () => {
   const [loading, setLoading] = useState(false);
@@ -66,22 +145,7 @@ const SystemManagement = () => {
     }
 
     setBatchPrinting(true);
-    const popup = window.open("", "_blank", "noopener,noreferrer");
-    if (!popup) {
-      setBatchPrinting(false);
-      message.error("浏览器拦截了打印窗口，请允许弹窗后重试");
-      return;
-    }
-
     try {
-      const escapeHtml = (value: string) =>
-        value
-          .replaceAll("&", "&amp;")
-          .replaceAll("<", "&lt;")
-          .replaceAll(">", "&gt;")
-          .replaceAll('"', "&quot;")
-          .replaceAll("'", "&#39;");
-
       const withQrImage = await Promise.all(
         targetDevices.map(async (device) => {
           const url = buildStatusUrl(device.id);
@@ -94,119 +158,125 @@ const SystemManagement = () => {
         })
       );
 
-      const pageSize = 12;
-      const pages: Array<Array<(typeof withQrImage)[number]>> = [];
-      for (let i = 0; i < withQrImage.length; i += pageSize) {
-        pages.push(withQrImage.slice(i, i + pageSize));
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+        compress: true,
+      });
+
+      const canvasWidth = 1240;
+      const canvasHeight = 1754;
+      const marginX = 44;
+      const marginY = 52;
+      const gapX = 24;
+      const gapY = 24;
+      const cardWidth = Math.floor((canvasWidth - marginX * 2 - gapX * (PDF_COLUMNS - 1)) / PDF_COLUMNS);
+      const cardHeight = Math.floor((canvasHeight - marginY * 2 - gapY * (PDF_ROWS - 1)) / PDF_ROWS);
+
+      for (let pageStart = 0; pageStart < withQrImage.length; pageStart += PDF_PAGE_SIZE) {
+        if (pageStart > 0) {
+          pdf.addPage("a4", "portrait");
+        }
+
+        const pageCanvas = document.createElement("canvas");
+        pageCanvas.width = canvasWidth;
+        pageCanvas.height = canvasHeight;
+        const context = pageCanvas.getContext("2d");
+        if (!context) {
+          throw new Error("当前浏览器不支持Canvas，无法生成PDF");
+        }
+
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        const pageDevices = withQrImage.slice(pageStart, pageStart + PDF_PAGE_SIZE);
+
+        for (let index = 0; index < pageDevices.length; index += 1) {
+          const { device, url, qrPng } = pageDevices[index];
+          const row = Math.floor(index / PDF_COLUMNS);
+          const col = index % PDF_COLUMNS;
+          const cardX = marginX + col * (cardWidth + gapX);
+          const cardY = marginY + row * (cardHeight + gapY);
+
+          context.strokeStyle = "#d1d5db";
+          context.lineWidth = 2;
+          context.strokeRect(cardX, cardY, cardWidth, cardHeight);
+
+          const qrImage = await loadImageFromDataUrl(qrPng);
+          const qrSize = Math.min(180, cardWidth - 56);
+          const qrX = cardX + Math.floor((cardWidth - qrSize) / 2);
+          const qrY = cardY + 18;
+          context.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
+
+          const textX = cardX + 16;
+          const textWidth = cardWidth - 32;
+          let textY = qrY + qrSize + 12;
+
+          textY = drawWrappedText(
+            context,
+            `设备名称: ${device.name}`,
+            textX,
+            textY,
+            textWidth,
+            '600 16px "Microsoft YaHei", "PingFang SC", sans-serif',
+            20,
+            2
+          );
+          textY = drawWrappedText(
+            context,
+            `设备ID: ${device.id}`,
+            textX,
+            textY + 2,
+            textWidth,
+            '500 14px "Microsoft YaHei", "PingFang SC", sans-serif',
+            18,
+            1
+          );
+          textY = drawWrappedText(
+            context,
+            `资产编号: ${device.device_sn}`,
+            textX,
+            textY + 1,
+            textWidth,
+            '500 14px "Microsoft YaHei", "PingFang SC", sans-serif',
+            18,
+            1
+          );
+          textY = drawWrappedText(
+            context,
+            `部署位置: ${device.location}`,
+            textX,
+            textY + 1,
+            textWidth,
+            '500 13px "Microsoft YaHei", "PingFang SC", sans-serif',
+            17,
+            2
+          );
+          drawWrappedText(
+            context,
+            `状态页: ${url}`,
+            textX,
+            textY + 2,
+            textWidth,
+            '400 11px "Microsoft YaHei", "PingFang SC", sans-serif',
+            14,
+            3,
+            "#4b5563"
+          );
+        }
+
+        const pageData = pageCanvas.toDataURL("image/jpeg", 0.95);
+        pdf.addImage(pageData, "JPEG", 0, 0, 210, 297, undefined, "FAST");
       }
 
-      const pageHtml = pages
-        .map((pageDevices, pageIndex) => {
-          const cards = pageDevices
-            .map(({ device, url, qrPng }) => {
-              return `
-                <section class="qr-card">
-                  <img class="qr-img" src="${qrPng}" alt="二维码-${escapeHtml(device.id)}" />
-                  <div class="name">${escapeHtml(device.name)}</div>
-                  <div class="meta">设备ID: ${escapeHtml(device.id)}</div>
-                  <div class="meta">资产编号: ${escapeHtml(device.device_sn)}</div>
-                  <div class="meta">部署位置: ${escapeHtml(device.location)}</div>
-                  <div class="url">${escapeHtml(url)}</div>
-                </section>
-              `;
-            })
-            .join("");
-
-          return `<main class="page ${pageIndex < pages.length - 1 ? "break-after" : ""}">${cards}</main>`;
-        })
-        .join("");
-
-      popup.document.open();
-      popup.document.write(`
-        <!doctype html>
-        <html lang="zh-CN">
-          <head>
-            <meta charset="utf-8" />
-            <title>设备二维码批量打印</title>
-            <style>
-              @page { size: A4 portrait; margin: 8mm; }
-              * { box-sizing: border-box; }
-              html, body { margin: 0; padding: 0; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; color: #111827; }
-              .page {
-                min-height: calc(297mm - 16mm);
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                grid-auto-rows: 1fr;
-                gap: 6mm;
-                align-content: start;
-                padding: 0;
-              }
-              .break-after { page-break-after: always; }
-              .qr-card {
-                border: 1px solid #d1d5db;
-                border-radius: 3mm;
-                padding: 4mm;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: flex-start;
-                min-height: 66mm;
-              }
-              .qr-img { width: 34mm; height: 34mm; image-rendering: pixelated; }
-              .name {
-                margin-top: 2mm;
-                font-size: 12px;
-                font-weight: 700;
-                text-align: center;
-                line-height: 1.3;
-              }
-              .meta {
-                margin-top: 1mm;
-                font-size: 10px;
-                text-align: center;
-                line-height: 1.3;
-                word-break: break-all;
-              }
-              .url {
-                margin-top: 1.2mm;
-                font-size: 8px;
-                color: #4b5563;
-                text-align: center;
-                word-break: break-all;
-              }
-              @media screen {
-                body { background: #f3f4f6; padding: 8mm; }
-                .page { background: #ffffff; margin: 0 auto 8mm auto; width: 194mm; padding: 0; }
-              }
-            </style>
-          </head>
-          <body>
-            ${pageHtml}
-            <script>
-              window.onload = function () {
-                var imgs = Array.prototype.slice.call(document.images || []);
-                Promise.all(
-                  imgs.map(function (img) {
-                    if (img.complete) return Promise.resolve();
-                    return new Promise(function (resolve) {
-                      img.onload = resolve;
-                      img.onerror = resolve;
-                    });
-                  })
-                ).then(function () {
-                  setTimeout(function () {
-                    window.print();
-                  }, 200);
-                });
-              };
-            </script>
-          </body>
-        </html>
-      `);
-      popup.document.close();
+      const now = new Date();
+      const pad = (value: number) => String(value).padStart(2, "0");
+      const fileName = `设备二维码_A4_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.pdf`;
+      pdf.save(fileName);
+      message.success(`PDF 已生成并下载，共 ${Math.ceil(withQrImage.length / PDF_PAGE_SIZE)} 页`);
     } catch (error) {
-      popup.close();
-      message.error(error instanceof Error ? error.message : "生成批量二维码失败");
+      message.error(error instanceof Error ? error.message : "生成二维码PDF失败");
     } finally {
       setBatchPrinting(false);
     }
@@ -309,7 +379,7 @@ const SystemManagement = () => {
               onClick={() => void openBatchPrint(selectedDevices)}
               disabled={selectedDevices.length === 0 || batchPrinting}
             >
-              {batchPrinting ? "正在生成打印页..." : "二维码批量导出打印(A4)"}
+              {batchPrinting ? "正在生成PDF..." : "二维码批量导出PDF(A4)"}
             </Button>
             <Button icon={<PlusOutlined />} type="dashed" onClick={() => setIsModalOpen(true)}>
               新增监控实体
