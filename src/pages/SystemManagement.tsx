@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button, Card, Input, Modal, Form, Space, Table, Tag, Typography, message } from "antd";
 import { CopyOutlined, PlusOutlined, QrcodeOutlined, SearchOutlined } from "@ant-design/icons";
 import { QRCodeSVG } from "qrcode.react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { createDevice, getDevices, getIntegrations, getRoles, type Device, type Role } from "@/services/phmApi";
 
 type DeviceFormValues = {
@@ -20,6 +21,7 @@ const SystemManagement = () => {
   const [integration, setIntegration] = useState<Record<string, string>>({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [qrDevice, setQrDevice] = useState<Device | null>(null);
+  const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
   const [form] = Form.useForm<DeviceFormValues>();
 
   const qrStatusUrl = useMemo(() => {
@@ -27,6 +29,139 @@ const SystemManagement = () => {
     if (typeof window === "undefined") return `/health?device_id=${encodeURIComponent(qrDevice.id)}`;
     return `${window.location.origin}/health?device_id=${encodeURIComponent(qrDevice.id)}`;
   }, [qrDevice]);
+
+  const buildStatusUrl = (deviceId: string) => {
+    if (typeof window === "undefined") return `/health?device_id=${encodeURIComponent(deviceId)}`;
+    return `${window.location.origin}/health?device_id=${encodeURIComponent(deviceId)}`;
+  };
+
+  const selectedDevices = useMemo(
+    () => devices.filter((device) => selectedDeviceIds.includes(device.id)),
+    [devices, selectedDeviceIds]
+  );
+
+  const openBatchPrint = (targetDevices: Device[]) => {
+    if (targetDevices.length === 0) {
+      message.warning("请先勾选需要打印二维码的设备");
+      return;
+    }
+
+    const popup = window.open("", "_blank", "noopener,noreferrer");
+    if (!popup) {
+      message.error("浏览器拦截了打印窗口，请允许弹窗后重试");
+      return;
+    }
+
+    const pageSize = 12;
+    const pages: Device[][] = [];
+    for (let i = 0; i < targetDevices.length; i += pageSize) {
+      pages.push(targetDevices.slice(i, i + pageSize));
+    }
+
+    const pageHtml = pages
+      .map((pageDevices, pageIndex) => {
+        const escapeHtml = (value: string) =>
+          value
+            .replaceAll("&", "&amp;")
+            .replaceAll("<", "&lt;")
+            .replaceAll(">", "&gt;")
+            .replaceAll('"', "&quot;")
+            .replaceAll("'", "&#39;");
+
+        const cards = pageDevices
+          .map((device) => {
+            const url = buildStatusUrl(device.id);
+            const qrSvg = renderToStaticMarkup(<QRCodeSVG value={url} size={170} includeMargin />);
+            return `
+              <section class="qr-card">
+                <div class="qr-svg">${qrSvg}</div>
+                <div class="name">${escapeHtml(device.name)}</div>
+                <div class="meta">设备ID: ${escapeHtml(device.id)}</div>
+                <div class="meta">资产编号: ${escapeHtml(device.device_sn)}</div>
+                <div class="meta">部署位置: ${escapeHtml(device.location)}</div>
+                <div class="url">${escapeHtml(url)}</div>
+              </section>
+            `;
+          })
+          .join("");
+
+        return `<main class="page ${pageIndex < pages.length - 1 ? "break-after" : ""}">${cards}</main>`;
+      })
+      .join("");
+
+    popup.document.open();
+    popup.document.write(`
+      <!doctype html>
+      <html lang="zh-CN">
+        <head>
+          <meta charset="utf-8" />
+          <title>设备二维码批量打印</title>
+          <style>
+            @page { size: A4 portrait; margin: 8mm; }
+            * { box-sizing: border-box; }
+            html, body { margin: 0; padding: 0; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; color: #111827; }
+            .page {
+              min-height: calc(297mm - 16mm);
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              grid-auto-rows: 1fr;
+              gap: 6mm;
+              align-content: start;
+              padding: 0;
+            }
+            .break-after { page-break-after: always; }
+            .qr-card {
+              border: 1px solid #d1d5db;
+              border-radius: 3mm;
+              padding: 4mm;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: flex-start;
+              min-height: 66mm;
+            }
+            .qr-svg svg { width: 34mm; height: 34mm; }
+            .name {
+              margin-top: 2mm;
+              font-size: 12px;
+              font-weight: 700;
+              text-align: center;
+              line-height: 1.3;
+            }
+            .meta {
+              margin-top: 1mm;
+              font-size: 10px;
+              text-align: center;
+              line-height: 1.3;
+              word-break: break-all;
+            }
+            .url {
+              margin-top: 1.2mm;
+              font-size: 8px;
+              color: #4b5563;
+              text-align: center;
+              word-break: break-all;
+            }
+            @media screen {
+              body { background: #f3f4f6; padding: 8mm; }
+              .page { background: #ffffff; margin: 0 auto 8mm auto; width: 194mm; padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          ${pageHtml}
+          <script>
+            window.onload = function () {
+              setTimeout(function () {
+                window.print();
+              }, 200);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    popup.document.close();
+  };
 
   const loadAll = async (q?: string) => {
     setLoading(true);
@@ -119,9 +254,18 @@ const SystemManagement = () => {
               查询检索
             </Button>
           </Space>
-          <Button icon={<PlusOutlined />} type="dashed" onClick={() => setIsModalOpen(true)}>
-            新增监控实体
-          </Button>
+          <Space>
+            <Button
+              icon={<QrcodeOutlined />}
+              onClick={() => openBatchPrint(selectedDevices)}
+              disabled={selectedDevices.length === 0}
+            >
+              二维码批量导出打印(A4)
+            </Button>
+            <Button icon={<PlusOutlined />} type="dashed" onClick={() => setIsModalOpen(true)}>
+              新增监控实体
+            </Button>
+          </Space>
         </div>
         <Table
           columns={columns}
@@ -129,6 +273,10 @@ const SystemManagement = () => {
           pagination={{ pageSize: 5 }}
           size="small"
           loading={loading}
+          rowSelection={{
+            selectedRowKeys: selectedDeviceIds,
+            onChange: (keys) => setSelectedDeviceIds(keys as string[]),
+          }}
         />
       </Card>
 
