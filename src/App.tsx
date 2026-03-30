@@ -7,6 +7,7 @@ import DataProcessing from './pages/DataProcessing';
 import HealthStatus from './pages/HealthStatus';
 import FaultDiagnosis from './pages/FaultDiagnosis';
 import SystemManagement from './pages/SystemManagement';
+import DeviceQrScan from './pages/DeviceQrScan';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="health" element={<HealthStatus />} />
           <Route path="diagnosis" element={<FaultDiagnosis />} />
           <Route path="system" element={<SystemManagement />} />
+          <Route path="scan" element={<DeviceQrScan />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Route>
       </Routes>

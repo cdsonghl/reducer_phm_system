@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Button, Card, Input, Modal, Form, Space, Table, Tag, message } from "antd";
-import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import { Button, Card, Input, Modal, Form, Space, Table, Tag, Typography, message } from "antd";
+import { CopyOutlined, PlusOutlined, QrcodeOutlined, SearchOutlined } from "@ant-design/icons";
+import { QRCodeSVG } from "qrcode.react";
 import { createDevice, getDevices, getIntegrations, getRoles, type Device, type Role } from "@/services/phmApi";
 
 type DeviceFormValues = {
@@ -18,7 +19,14 @@ const SystemManagement = () => {
   const [roles, setRoles] = useState<Role[]>([]);
   const [integration, setIntegration] = useState<Record<string, string>>({});
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [qrDevice, setQrDevice] = useState<Device | null>(null);
   const [form] = Form.useForm<DeviceFormValues>();
+
+  const qrStatusUrl = useMemo(() => {
+    if (!qrDevice) return "";
+    if (typeof window === "undefined") return `/health?device_id=${encodeURIComponent(qrDevice.id)}`;
+    return `${window.location.origin}/health?device_id=${encodeURIComponent(qrDevice.id)}`;
+  }, [qrDevice]);
 
   const loadAll = async (q?: string) => {
     setLoading(true);
@@ -55,6 +63,16 @@ const SystemManagement = () => {
         },
       },
       { title: "最近维保时间", dataIndex: "last_maintenance", key: "last_maintenance" },
+      {
+        title: "设备二维码",
+        key: "qr_code",
+        width: 120,
+        render: (_: unknown, record: Device) => (
+          <Button size="small" icon={<QrcodeOutlined />} onClick={() => setQrDevice(record)}>
+            查看
+          </Button>
+        ),
+      },
     ],
     []
   );
@@ -157,6 +175,46 @@ const SystemManagement = () => {
             <Input placeholder="例如：2号试车台" />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title={qrDevice ? `${qrDevice.name} 专属二维码` : "设备二维码"}
+        open={Boolean(qrDevice)}
+        onCancel={() => setQrDevice(null)}
+        footer={[
+          <Button
+            key="copy"
+            icon={<CopyOutlined />}
+            onClick={async () => {
+              if (!qrStatusUrl) return;
+              try {
+                if (navigator.clipboard?.writeText) {
+                  await navigator.clipboard.writeText(qrStatusUrl);
+                  message.success("状态页链接已复制");
+                } else {
+                  message.warning("当前浏览器不支持剪贴板自动复制，请手动复制");
+                }
+              } catch {
+                message.error("复制失败，请手动复制链接");
+              }
+            }}
+          >
+            复制状态页链接
+          </Button>,
+          <Button key="close" type="primary" onClick={() => setQrDevice(null)}>
+            关闭
+          </Button>,
+        ]}
+      >
+        {qrDevice ? (
+          <div className="flex flex-col items-center gap-4">
+            <QRCodeSVG value={qrStatusUrl} size={220} includeMargin />
+            <Typography.Text className="text-center">
+              扫码后可直达设备状态页：<br />
+              <Typography.Text copyable>{qrStatusUrl}</Typography.Text>
+            </Typography.Text>
+          </div>
+        ) : null}
       </Modal>
     </div>
   );

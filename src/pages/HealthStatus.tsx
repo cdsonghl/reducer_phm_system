@@ -1,22 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, Select, Table, Tag, message } from "antd";
+import { useSearchParams } from "react-router-dom";
 import { HealthIndexChart } from "../components/HealthIndexChart";
 import { getDevices, getHealthAlerts, getHealthTrend, type Device, type HealthAlert } from "@/services/phmApi";
 
 const HealthStatus = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>();
   const [trendPoints, setTrendPoints] = useState<Array<{ time: string; value: number }>>([]);
   const [alerts, setAlerts] = useState<HealthAlert[]>([]);
+  const deviceIdFromQuery = searchParams.get("device_id") ?? undefined;
+  const lastWarnedMissingIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const init = async () => {
       try {
         const res = await getDevices();
         setDevices(res.items);
-        if (res.items.length > 0) {
-          setSelectedDeviceId(res.items[0].id);
-        }
+        if (res.items.length === 0) return;
+        setSelectedDeviceId(res.items[0].id);
       } catch (error) {
         message.error(error instanceof Error ? error.message : "加载设备列表失败");
       }
@@ -25,7 +28,27 @@ const HealthStatus = () => {
   }, []);
 
   useEffect(() => {
+    if (!deviceIdFromQuery || devices.length === 0) return;
+    if (!devices.some((d) => d.id === deviceIdFromQuery)) {
+      if (lastWarnedMissingIdRef.current !== deviceIdFromQuery) {
+        message.warning(`未找到设备 ${deviceIdFromQuery}，已自动切换到默认设备`);
+        lastWarnedMissingIdRef.current = deviceIdFromQuery;
+      }
+      return;
+    }
+    lastWarnedMissingIdRef.current = null;
+    if (selectedDeviceId !== deviceIdFromQuery) {
+      setSelectedDeviceId(deviceIdFromQuery);
+    }
+  }, [deviceIdFromQuery, devices, selectedDeviceId]);
+
+  useEffect(() => {
     if (!selectedDeviceId) return;
+
+    if (deviceIdFromQuery !== selectedDeviceId) {
+      setSearchParams({ device_id: selectedDeviceId }, { replace: true });
+    }
+
     const load = async () => {
       try {
         const [trendRes, alertRes] = await Promise.all([getHealthTrend(selectedDeviceId), getHealthAlerts(selectedDeviceId)]);
@@ -36,7 +59,7 @@ const HealthStatus = () => {
       }
     };
     void load();
-  }, [selectedDeviceId]);
+  }, [deviceIdFromQuery, selectedDeviceId, setSearchParams]);
 
   const activeDevice = useMemo(() => devices.find((d) => d.id === selectedDeviceId), [devices, selectedDeviceId]);
 
@@ -60,7 +83,7 @@ const HealthStatus = () => {
       <div className="flex items-center justify-between">
         <Select
           value={selectedDeviceId}
-          onChange={setSelectedDeviceId}
+          onChange={(nextId) => setSelectedDeviceId(nextId)}
           style={{ width: 360 }}
           size="large"
           options={devices.map((d) => ({

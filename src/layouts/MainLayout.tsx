@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
 import { Button, Form, Input, Layout, Menu, Modal, Spin, message } from "antd";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { ApiOutlined, DashboardOutlined, DatabaseOutlined, LineChartOutlined, SettingOutlined, ToolOutlined } from "@ant-design/icons";
+import {
+  ApiOutlined,
+  DashboardOutlined,
+  DatabaseOutlined,
+  LineChartOutlined,
+  QrcodeOutlined,
+  SettingOutlined,
+  ToolOutlined,
+} from "@ant-design/icons";
 import { AUTH_REQUIRED_EVENT, clearAuth, getCurrentUser, login, type AuthUser } from "@/services/auth";
 
 const { Header, Sider, Content } = Layout;
@@ -27,6 +35,7 @@ const MainLayout = () => {
     { key: "/acquisition", icon: <DatabaseOutlined />, label: "数据采集模块" },
     { key: "/processing", icon: <SettingOutlined />, label: "数据预处理" },
     { key: "/health", icon: <LineChartOutlined />, label: "健康状态评估" },
+    { key: "/scan", icon: <QrcodeOutlined />, label: "扫码查看设备状态" },
     { key: "/diagnosis", icon: <ToolOutlined />, label: "故障诊断" },
     { key: "/system", icon: <ApiOutlined />, label: "系统支撑管理" },
   ];
