@@ -2,7 +2,18 @@ import { useEffect, Suspense, useState, useMemo, useRef } from "react";
 import { Canvas, useThree, useFrame } from "@react-three/fiber";
 import { useGLTF, OrbitControls, Environment, Html } from "@react-three/drei";
 import * as THREE from "three";
+import { DRACOLoader } from "three-stdlib";
 import { DEFAULT_HIGHLIGHT_PARTS, type HighlightPart } from "./digitalTwinConfig";
+
+const DRACO_DECODER_PATH = "/draco/gltf/";
+
+function configureDraco(loader: { setDRACOLoader: (dracoLoader: DRACOLoader) => void }) {
+  const dracoLoader = new DRACOLoader();
+  dracoLoader.setDecoderPath(DRACO_DECODER_PATH);
+  // Prefer JS decoder for wider compatibility when WASM serving is restricted.
+  dracoLoader.setDecoderConfig({ type: "js" });
+  loader.setDRACOLoader(dracoLoader);
+}
 
 // 需要半透明化的零件名称（精确匹配或前缀匹配）
 const TRANSLUCENT_PART_NAMES = [
@@ -22,7 +33,7 @@ interface ReducerModelProps {
 }
 
 function ReducerModel({ highlightParts }: ReducerModelProps) {
-  const { scene: rawScene } = useGLTF("/reducer.glb");
+  const { scene: rawScene } = useGLTF("/reducer.glb", false, false, configureDraco);
   // 克隆场景，避免两个实例共用同一对象造成材质相互覆盖
   const scene = useMemo(() => rawScene.clone(true), [rawScene]);
 
@@ -159,6 +170,23 @@ interface DigitalTwinProps {
 
 export default function DigitalTwin({ highlightParts = DEFAULT_HIGHLIGHT_PARTS, compact = false }: DigitalTwinProps) {
   const [ready, setReady] = useState(false);
+  const [hasWebGL, setHasWebGL] = useState(true);
+
+  useEffect(() => {
+    const canvas = document.createElement("canvas");
+    const supported = Boolean(canvas.getContext("webgl") || canvas.getContext("experimental-webgl"));
+    setHasWebGL(supported);
+  }, []);
+
+  if (!hasWebGL) {
+    return (
+      <div className="relative w-full h-full min-h-[280px] rounded-lg overflow-hidden bg-gray-950 flex items-center justify-center p-4 text-center">
+        <div className="text-gray-300 text-sm leading-6">
+          当前设备浏览器未启用 WebGL，三维模型无法显示。请启用浏览器硬件加速，或更换为 Chrome/Edge 新版本重试。
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full h-full min-h-[280px] rounded-lg overflow-hidden">
@@ -235,4 +263,4 @@ export default function DigitalTwin({ highlightParts = DEFAULT_HIGHLIGHT_PARTS, 
   );
 }
 
-useGLTF.preload("/reducer.glb");
+useGLTF.preload("/reducer.glb", false, false, configureDraco);
