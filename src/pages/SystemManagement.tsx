@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Card, Input, Modal, Form, Space, Table, Tag, Typography, message } from "antd";
-import { CopyOutlined, PlusOutlined, QrcodeOutlined, SearchOutlined } from "@ant-design/icons";
-import { QRCodeSVG } from "qrcode.react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { CopyOutlined, DownloadOutlined, PlusOutlined, QrcodeOutlined, SearchOutlined } from "@ant-design/icons";
+import { QRCodeCanvas } from "qrcode.react";
+import QRCode from "qrcode";
 import { createDevice, getDevices, getIntegrations, getRoles, type Device, type Role } from "@/services/phmApi";
 
 type DeviceFormValues = {
@@ -22,6 +22,8 @@ const SystemManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [qrDevice, setQrDevice] = useState<Device | null>(null);
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<string[]>([]);
+  const [batchPrinting, setBatchPrinting] = useState(false);
+  const singleQrCanvasRef = useRef<HTMLDivElement | null>(null);
   const [form] = Form.useForm<DeviceFormValues>();
 
   const qrStatusUrl = useMemo(() => {
@@ -40,127 +42,174 @@ const SystemManagement = () => {
     [devices, selectedDeviceIds]
   );
 
-  const openBatchPrint = (targetDevices: Device[]) => {
+  const downloadSingleQr = () => {
+    if (!qrDevice) {
+      message.warning("请先选择设备二维码");
+      return;
+    }
+    const canvas = singleQrCanvasRef.current?.querySelector("canvas");
+    if (!canvas) {
+      message.error("二维码画布尚未生成，请稍后重试");
+      return;
+    }
+    const dataUrl = canvas.toDataURL("image/png");
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = `device-qr-${qrDevice.id}.png`;
+    link.click();
+  };
+
+  const openBatchPrint = async (targetDevices: Device[]) => {
     if (targetDevices.length === 0) {
       message.warning("请先勾选需要打印二维码的设备");
       return;
     }
 
+    setBatchPrinting(true);
     const popup = window.open("", "_blank", "noopener,noreferrer");
     if (!popup) {
+      setBatchPrinting(false);
       message.error("浏览器拦截了打印窗口，请允许弹窗后重试");
       return;
     }
 
-    const pageSize = 12;
-    const pages: Device[][] = [];
-    for (let i = 0; i < targetDevices.length; i += pageSize) {
-      pages.push(targetDevices.slice(i, i + pageSize));
+    try {
+      const escapeHtml = (value: string) =>
+        value
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+
+      const withQrImage = await Promise.all(
+        targetDevices.map(async (device) => {
+          const url = buildStatusUrl(device.id);
+          const qrPng = await QRCode.toDataURL(url, {
+            width: 340,
+            margin: 1,
+            errorCorrectionLevel: "M",
+          });
+          return { device, url, qrPng };
+        })
+      );
+
+      const pageSize = 12;
+      const pages: Array<Array<(typeof withQrImage)[number]>> = [];
+      for (let i = 0; i < withQrImage.length; i += pageSize) {
+        pages.push(withQrImage.slice(i, i + pageSize));
+      }
+
+      const pageHtml = pages
+        .map((pageDevices, pageIndex) => {
+          const cards = pageDevices
+            .map(({ device, url, qrPng }) => {
+              return `
+                <section class="qr-card">
+                  <img class="qr-img" src="${qrPng}" alt="二维码-${escapeHtml(device.id)}" />
+                  <div class="name">${escapeHtml(device.name)}</div>
+                  <div class="meta">设备ID: ${escapeHtml(device.id)}</div>
+                  <div class="meta">资产编号: ${escapeHtml(device.device_sn)}</div>
+                  <div class="meta">部署位置: ${escapeHtml(device.location)}</div>
+                  <div class="url">${escapeHtml(url)}</div>
+                </section>
+              `;
+            })
+            .join("");
+
+          return `<main class="page ${pageIndex < pages.length - 1 ? "break-after" : ""}">${cards}</main>`;
+        })
+        .join("");
+
+      popup.document.open();
+      popup.document.write(`
+        <!doctype html>
+        <html lang="zh-CN">
+          <head>
+            <meta charset="utf-8" />
+            <title>设备二维码批量打印</title>
+            <style>
+              @page { size: A4 portrait; margin: 8mm; }
+              * { box-sizing: border-box; }
+              html, body { margin: 0; padding: 0; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; color: #111827; }
+              .page {
+                min-height: calc(297mm - 16mm);
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                grid-auto-rows: 1fr;
+                gap: 6mm;
+                align-content: start;
+                padding: 0;
+              }
+              .break-after { page-break-after: always; }
+              .qr-card {
+                border: 1px solid #d1d5db;
+                border-radius: 3mm;
+                padding: 4mm;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: flex-start;
+                min-height: 66mm;
+              }
+              .qr-img { width: 34mm; height: 34mm; image-rendering: pixelated; }
+              .name {
+                margin-top: 2mm;
+                font-size: 12px;
+                font-weight: 700;
+                text-align: center;
+                line-height: 1.3;
+              }
+              .meta {
+                margin-top: 1mm;
+                font-size: 10px;
+                text-align: center;
+                line-height: 1.3;
+                word-break: break-all;
+              }
+              .url {
+                margin-top: 1.2mm;
+                font-size: 8px;
+                color: #4b5563;
+                text-align: center;
+                word-break: break-all;
+              }
+              @media screen {
+                body { background: #f3f4f6; padding: 8mm; }
+                .page { background: #ffffff; margin: 0 auto 8mm auto; width: 194mm; padding: 0; }
+              }
+            </style>
+          </head>
+          <body>
+            ${pageHtml}
+            <script>
+              window.onload = function () {
+                var imgs = Array.prototype.slice.call(document.images || []);
+                Promise.all(
+                  imgs.map(function (img) {
+                    if (img.complete) return Promise.resolve();
+                    return new Promise(function (resolve) {
+                      img.onload = resolve;
+                      img.onerror = resolve;
+                    });
+                  })
+                ).then(function () {
+                  setTimeout(function () {
+                    window.print();
+                  }, 200);
+                });
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      popup.document.close();
+    } catch (error) {
+      popup.close();
+      message.error(error instanceof Error ? error.message : "生成批量二维码失败");
+    } finally {
+      setBatchPrinting(false);
     }
-
-    const pageHtml = pages
-      .map((pageDevices, pageIndex) => {
-        const escapeHtml = (value: string) =>
-          value
-            .replaceAll("&", "&amp;")
-            .replaceAll("<", "&lt;")
-            .replaceAll(">", "&gt;")
-            .replaceAll('"', "&quot;")
-            .replaceAll("'", "&#39;");
-
-        const cards = pageDevices
-          .map((device) => {
-            const url = buildStatusUrl(device.id);
-            const qrSvg = renderToStaticMarkup(<QRCodeSVG value={url} size={170} includeMargin />);
-            return `
-              <section class="qr-card">
-                <div class="qr-svg">${qrSvg}</div>
-                <div class="name">${escapeHtml(device.name)}</div>
-                <div class="meta">设备ID: ${escapeHtml(device.id)}</div>
-                <div class="meta">资产编号: ${escapeHtml(device.device_sn)}</div>
-                <div class="meta">部署位置: ${escapeHtml(device.location)}</div>
-                <div class="url">${escapeHtml(url)}</div>
-              </section>
-            `;
-          })
-          .join("");
-
-        return `<main class="page ${pageIndex < pages.length - 1 ? "break-after" : ""}">${cards}</main>`;
-      })
-      .join("");
-
-    popup.document.open();
-    popup.document.write(`
-      <!doctype html>
-      <html lang="zh-CN">
-        <head>
-          <meta charset="utf-8" />
-          <title>设备二维码批量打印</title>
-          <style>
-            @page { size: A4 portrait; margin: 8mm; }
-            * { box-sizing: border-box; }
-            html, body { margin: 0; padding: 0; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; color: #111827; }
-            .page {
-              min-height: calc(297mm - 16mm);
-              display: grid;
-              grid-template-columns: repeat(3, 1fr);
-              grid-auto-rows: 1fr;
-              gap: 6mm;
-              align-content: start;
-              padding: 0;
-            }
-            .break-after { page-break-after: always; }
-            .qr-card {
-              border: 1px solid #d1d5db;
-              border-radius: 3mm;
-              padding: 4mm;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: flex-start;
-              min-height: 66mm;
-            }
-            .qr-svg svg { width: 34mm; height: 34mm; }
-            .name {
-              margin-top: 2mm;
-              font-size: 12px;
-              font-weight: 700;
-              text-align: center;
-              line-height: 1.3;
-            }
-            .meta {
-              margin-top: 1mm;
-              font-size: 10px;
-              text-align: center;
-              line-height: 1.3;
-              word-break: break-all;
-            }
-            .url {
-              margin-top: 1.2mm;
-              font-size: 8px;
-              color: #4b5563;
-              text-align: center;
-              word-break: break-all;
-            }
-            @media screen {
-              body { background: #f3f4f6; padding: 8mm; }
-              .page { background: #ffffff; margin: 0 auto 8mm auto; width: 194mm; padding: 0; }
-            }
-          </style>
-        </head>
-        <body>
-          ${pageHtml}
-          <script>
-            window.onload = function () {
-              setTimeout(function () {
-                window.print();
-              }, 200);
-            };
-          </script>
-        </body>
-      </html>
-    `);
-    popup.document.close();
   };
 
   const loadAll = async (q?: string) => {
@@ -257,10 +306,10 @@ const SystemManagement = () => {
           <Space>
             <Button
               icon={<QrcodeOutlined />}
-              onClick={() => openBatchPrint(selectedDevices)}
-              disabled={selectedDevices.length === 0}
+              onClick={() => void openBatchPrint(selectedDevices)}
+              disabled={selectedDevices.length === 0 || batchPrinting}
             >
-              二维码批量导出打印(A4)
+              {batchPrinting ? "正在生成打印页..." : "二维码批量导出打印(A4)"}
             </Button>
             <Button icon={<PlusOutlined />} type="dashed" onClick={() => setIsModalOpen(true)}>
               新增监控实体
@@ -330,6 +379,9 @@ const SystemManagement = () => {
         open={Boolean(qrDevice)}
         onCancel={() => setQrDevice(null)}
         footer={[
+          <Button key="download" icon={<DownloadOutlined />} onClick={downloadSingleQr}>
+            下载二维码(PNG)
+          </Button>,
           <Button
             key="copy"
             icon={<CopyOutlined />}
@@ -355,8 +407,8 @@ const SystemManagement = () => {
         ]}
       >
         {qrDevice ? (
-          <div className="flex flex-col items-center gap-4">
-            <QRCodeSVG value={qrStatusUrl} size={220} includeMargin />
+          <div ref={singleQrCanvasRef} className="flex flex-col items-center gap-4">
+            <QRCodeCanvas value={qrStatusUrl} size={220} includeMargin level="M" />
             <Typography.Text className="text-center">
               扫码后可直达设备状态页：<br />
               <Typography.Text copyable>{qrStatusUrl}</Typography.Text>
